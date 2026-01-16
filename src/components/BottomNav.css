@@ -1,0 +1,44 @@
+.bottom-nav {
+    height: 80px;
+    /* Taller for iPhone safe area */
+    padding-bottom: 20px;
+    /* Safe area padding guess, safe-area-inset-bottom handled by env() usually */
+    padding-bottom: env(safe-area-inset-bottom, 20px);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    background-color: var(--color-surface);
+    border-top: 1px solid var(--color-border);
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
+    /* Premium float feel */
+}
+
+.nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-sub);
+    font-size: 0.75rem;
+    gap: 4px;
+    width: 64px;
+    height: 100%;
+    transition: color 0.2s ease;
+}
+
+.nav-item--active {
+    color: var(--color-primary);
+}
+
+.nav-item svg {
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.nav-item--active svg {
+    transform: scale(1.1) translateY(-2px);
+}
