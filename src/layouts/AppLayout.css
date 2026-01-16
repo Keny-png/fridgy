@@ -1,0 +1,15 @@
+.app-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.app-content {
+    flex: 1;
+    padding: var(--space-4);
+    padding-bottom: 100px;
+    /* Space for bottom nav */
+    max-width: 600px;
+    margin: 0 auto;
+    width: 100%;
+}
