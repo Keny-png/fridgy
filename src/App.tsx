@@ -8,7 +8,7 @@ import { StatsPage } from './pages/StatsPage';
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <BrowserRouter basename={import.meta.env.BASE_URL}>
         <Routes>
           <Route element={<AppLayout />}>
             <Route path="/" element={<InventoryPage />} />
