@@ -165,6 +165,70 @@ export class SheetsService {
         });
     }
 
+    /**
+     * Updates item quantity (partial consumption)
+     */
+    async updateItemQuantity(itemId: string, newQuantity: number, consumedAmount: number, itemName: string): Promise<void> {
+        if (!this.spreadsheetId) await this.ensureDatabase();
+
+        const inventory = await this.getInventoryAllRaw();
+        const rowIndex = inventory.findIndex(row => row[0] === itemId);
+
+        if (rowIndex === -1) throw new Error('Item not found');
+
+        const rangeRow = rowIndex + 2;
+
+        // Update Quantity (Column C -> Index 2)
+        await window.gapi.client.sheets.spreadsheets.values.update({
+            spreadsheetId: this.spreadsheetId,
+            range: `${INVENTORY_SHEET_TITLE}!C${rangeRow}`,
+            valueInputOption: 'USER_ENTERED',
+            resource: { values: [[newQuantity]] }
+        });
+
+        // Log to History
+        await this.logHistory({
+            id: uuidv4(),
+            itemId,
+            itemName,
+            date: new Date().toISOString(),
+            quantity: consumedAmount,
+            action: 'consumed',
+            reason: 'partial'
+        });
+    }
+
+    /**
+     * Fully updates an existing item
+     */
+    async updateItem(item: InventoryItem): Promise<void> {
+        if (!this.spreadsheetId) await this.ensureDatabase();
+
+        const inventory = await this.getInventoryAllRaw();
+        const rowIndex = inventory.findIndex(row => row[0] === item.id);
+
+        if (rowIndex === -1) throw new Error('Item not found');
+
+        const rangeRow = rowIndex + 2;
+
+        // Construct row data (Columns B to K -> Index 1 to 10)
+        // A=ID (skip), B=Name, C=Qty, D=Unit, E=Cat, F=Loc, G=Exp, H=Add, I=Stat, J=Img, K=Note
+        const rowData = [
+            item.name, item.quantity, item.unit || '', item.category,
+            item.location, item.expiryDate, item.addedDate, item.status,
+            item.imageId || '', item.note || ''
+        ];
+
+        await window.gapi.client.sheets.spreadsheets.values.update({
+            spreadsheetId: this.spreadsheetId,
+            range: `${INVENTORY_SHEET_TITLE}!B${rangeRow}:K${rangeRow}`,
+            valueInputOption: 'USER_ENTERED',
+            resource: {
+                values: [rowData]
+            }
+        });
+    }
+
     private async getInventoryAllRaw(): Promise<any[]> {
         const response = await window.gapi.client.sheets.spreadsheets.values.get({
             spreadsheetId: this.spreadsheetId,

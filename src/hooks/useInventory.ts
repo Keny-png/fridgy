@@ -49,9 +49,27 @@ export const useInventory = () => {
             await sheetsService.updateItemStatus(id, status, reason);
         } catch (err: any) {
             console.error(err);
-            // Revert if failed (would need more complex state, skipping for MVP)
             fetchItems();
             throw new Error('Failed to update status');
+        }
+    };
+
+    const consumeItem = async (id: string, name: string, currentQty: number, consumeQty: number) => {
+        try {
+            if (consumeQty >= currentQty) {
+                // Full consumption
+                setItems(prev => prev.filter(i => i.id !== id));
+                await sheetsService.updateItemStatus(id, 'consumed');
+            } else {
+                // Partial consumption
+                const newQty = currentQty - consumeQty;
+                setItems(prev => prev.map(i => i.id === id ? { ...i, quantity: newQty } : i));
+                await sheetsService.updateItemQuantity(id, newQty, consumeQty, name);
+            }
+        } catch (err) {
+            console.error(err);
+            fetchItems();
+            throw new Error('Failed to consume item');
         }
     };
 
@@ -61,6 +79,18 @@ export const useInventory = () => {
         error,
         refresh: fetchItems,
         addItem,
-        updateStatus
+        updateStatus,
+        consumeItem,
+        editItem: async (item: InventoryItem) => {
+            try {
+                // Optimistic update
+                setItems(prev => prev.map(i => i.id === item.id ? item : i));
+                await sheetsService.updateItem(item);
+            } catch (err) {
+                console.error(err);
+                fetchItems();
+                throw new Error('Failed to update item');
+            }
+        }
     };
 };

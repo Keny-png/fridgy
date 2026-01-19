@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { Card } from '../components/Card';
 import { Input } from '../components/Input';
 import { Button } from '../components/Button';
 import { useInventory } from '../hooks/useInventory';
-import { type StorageLocation } from '../types';
+import { type StorageLocation, type InventoryItem } from '../types';
 import { ArrowLeft } from 'lucide-react';
 import { addDays, format } from 'date-fns';
 
@@ -25,7 +25,12 @@ const EXPIRY_SUGGESTIONS: Record<string, number> = {
 
 export const AddPage: React.FC = () => {
     const navigate = useNavigate();
-    const { addItem, isLoading } = useInventory();
+    const location = useLocation();
+    const { id } = useParams();
+    const { addItem, editItem, isLoading } = useInventory();
+
+    const isEditing = Boolean(id);
+    const initialItem = location.state?.item as InventoryItem | undefined;
 
     const [formData, setFormData] = useState({
         name: '',
@@ -38,8 +43,27 @@ export const AddPage: React.FC = () => {
 
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    useEffect(() => {
+        if (isEditing && initialItem) {
+            setFormData({
+                name: initialItem.name,
+                quantity: initialItem.quantity,
+                unit: initialItem.unit || '個',
+                category: initialItem.category,
+                location: initialItem.location,
+                expiryDate: initialItem.expiryDate.split('T')[0] // Ensure YYYY-MM-DD
+            });
+        }
+    }, [isEditing, initialItem]);
+
     const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const category = e.target.value;
+        // Only auto-update expiry if NOT editing or if user explicitly changes category 
+        // (Logic choice: maybe keep original date on edit unless user wants reset? 
+        // For simplicity, let's update date if they change category, but keep if just loading form)
+
+        // If Just loading, we dealt with it in useEffect.
+        // Here is user interaction.
         const days = EXPIRY_SUGGESTIONS[category] || 7;
         setFormData(prev => ({
             ...prev,
@@ -54,18 +78,31 @@ export const AddPage: React.FC = () => {
 
         setIsSubmitting(true);
         try {
-            await addItem({
-                name: formData.name,
-                quantity: Number(formData.quantity),
-                unit: formData.unit,
-                category: formData.category,
-                location: formData.location,
-                expiryDate: formData.expiryDate,
-                note: ''
-            });
+            if (isEditing && initialItem) {
+                await editItem({
+                    ...initialItem, // Keep ID and addedDate
+                    name: formData.name,
+                    quantity: Number(formData.quantity),
+                    unit: formData.unit,
+                    category: formData.category,
+                    location: formData.location,
+                    expiryDate: formData.expiryDate,
+                    // Note and ImageID preserved via spread if not in form
+                });
+            } else {
+                await addItem({
+                    name: formData.name,
+                    quantity: Number(formData.quantity),
+                    unit: formData.unit,
+                    category: formData.category,
+                    location: formData.location,
+                    expiryDate: formData.expiryDate,
+                    note: ''
+                });
+            }
             navigate('/');
         } catch (err) {
-            alert('追加に失敗しました');
+            alert(isEditing ? '更新に失敗しました' : '追加に失敗しました');
             setIsSubmitting(false);
         }
     };
@@ -79,7 +116,7 @@ export const AddPage: React.FC = () => {
             </div>
 
             <Card>
-                <h2 style={{ marginBottom: '20px' }}>食材を追加</h2>
+                <h2 style={{ marginBottom: '20px' }}>{isEditing ? '食材を編集' : '食材を追加'}</h2>
                 <form onSubmit={handleSubmit}>
                     <Input
                         label="品名"
@@ -87,17 +124,18 @@ export const AddPage: React.FC = () => {
                         value={formData.name}
                         onChange={e => setFormData({ ...formData, name: e.target.value })}
                         required
-                        autoFocus
+                        autoFocus={!isEditing}
                     />
 
                     <div style={{ display: 'flex', gap: '12px' }}>
                         <Input
                             label="数量"
                             type="number"
-                            min="1"
+                            min="0" // Allow 0? No, usually 1.
+                            step="0.1" // Allow decimals
                             style={{ flex: 1 }}
                             value={formData.quantity}
-                            onChange={e => setFormData({ ...formData, quantity: parseInt(e.target.value) })}
+                            onChange={e => setFormData({ ...formData, quantity: parseFloat(e.target.value) })}
                         />
                         <div className="input-wrapper" style={{ width: '100px' }}>
                             <label className="input__label">単位</label>
@@ -112,6 +150,7 @@ export const AddPage: React.FC = () => {
                                 <option value="枚">枚</option>
                                 <option value="パック">パック</option>
                                 <option value="g">g</option>
+                                <option value="kg">kg</option>
                                 <option value="ml">ml</option>
                                 <option value="L">L</option>
                             </select>
@@ -155,7 +194,7 @@ export const AddPage: React.FC = () => {
                             type="submit"
                             isLoading={isSubmitting || isLoading}
                         >
-                            保存する
+                            {isEditing ? '更新する' : '保存する'}
                         </Button>
                     </div>
                 </form>

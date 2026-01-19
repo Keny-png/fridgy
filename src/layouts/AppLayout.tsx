@@ -4,8 +4,11 @@ import { Header } from '../components/Header';
 import { BottomNav } from '../components/BottomNav';
 import './AppLayout.css';
 
+import { useAuth } from '../contexts/AuthContext';
+
 export const AppLayout: React.FC = () => {
     const location = useLocation();
+    const { user, logout } = useAuth();
 
     const getHeaderTitle = () => {
         switch (location.pathname) {
@@ -16,9 +19,19 @@ export const AppLayout: React.FC = () => {
         }
     };
 
+    const handleSettingsClick = () => {
+        if (window.confirm('ログアウトしますか？')) {
+            logout();
+        }
+    };
+
     return (
         <div className="app-layout">
-            <Header title={getHeaderTitle()} />
+            <Header
+                title={getHeaderTitle()}
+                onSettingsClick={handleSettingsClick}
+                userPhotoUrl={user?.photoUrl}
+            />
             <main className="app-content">
                 <Outlet />
             </main>

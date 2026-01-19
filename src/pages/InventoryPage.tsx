@@ -4,12 +4,22 @@ import { Button } from '../components/Button';
 import { useInventory } from '../hooks/useInventory';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Plus, Utensils, Trash2 } from 'lucide-react';
+import { QuantityModal } from '../components/QuantityModal';
+import { Calendar, Clock, MapPin, Tag, Loader2, Plus, Utensils, Trash2, Pencil } from 'lucide-react';
+
+import type { SortOption } from '../types';
 
 export const InventoryPage: React.FC = () => {
-    const { items, isLoading, error, refresh, updateStatus } = useInventory();
+    const { items, isLoading, error, refresh, updateStatus, consumeItem } = useInventory();
     const { login, isAuthenticated } = useAuth();
     const navigate = useNavigate();
+
+    // Modal State
+    const [selectedItem, setSelectedItem] = React.useState<{ id: string, name: string, quantity: number, unit: string } | null>(null);
+    const [isModalOpen, setIsModalOpen] = React.useState(false);
+
+    // Sort State
+    const [sortBy, setSortBy] = React.useState<SortOption>('expiry');
 
     // Refresh on mount if authenticated
     useEffect(() => {
@@ -65,9 +75,29 @@ export const InventoryPage: React.FC = () => {
         );
     }
 
-    const handleConsume = async (id: string, name: string) => {
-        if (!window.confirm(`${name} を「使い切り」にしますか？`)) return;
-        await updateStatus(id, 'consumed');
+    const openConsumeModal = (item: { id: string, name: string, quantity: number, unit?: string }) => {
+        if (item.quantity <= 1) {
+            // Direct consume if 1
+            if (window.confirm(`${item.name} を「使い切り」にしますか？`)) {
+                consumeItem(item.id, item.name, 1, 1);
+            }
+        } else {
+            setSelectedItem({
+                id: item.id,
+                name: item.name,
+                quantity: item.quantity,
+                unit: item.unit || '個'
+            });
+            setIsModalOpen(true);
+        }
+    };
+
+    const handleModalConfirm = async (amount: number) => {
+        if (selectedItem) {
+            setIsModalOpen(false); // Close first for better UX
+            await consumeItem(selectedItem.id, selectedItem.name, selectedItem.quantity, amount);
+            setSelectedItem(null);
+        }
     };
 
     const handleWaste = async (id: string, name: string) => {
@@ -78,13 +108,77 @@ export const InventoryPage: React.FC = () => {
 
     // Calculate sorted items
     const sortedItems = [...items].sort((a, b) => {
-        const dateA = new Date(a.expiryDate).getTime();
-        const dateB = new Date(b.expiryDate).getTime();
-        return dateA - dateB;
+        switch (sortBy) {
+            case 'expiry':
+                return new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime();
+            case 'added':
+                // Newest first
+                return new Date(b.addedDate).getTime() - new Date(a.addedDate).getTime();
+            case 'name':
+                return a.name.localeCompare(b.name, 'ja');
+            case 'location':
+                // Custom order: Fridge -> Freezer -> Pantry
+                const order: Record<string, number> = { '冷蔵': 1, '冷凍': 2, '常温': 3 };
+                return (order[a.location] || 99) - (order[b.location] || 99);
+            default:
+                return 0;
+        }
     });
+
+    const SortButton: React.FC<{ type: SortOption, label: string, icon: React.ReactNode }> = ({ type, label, icon }) => (
+        <button
+            onClick={() => setSortBy(type)}
+            style={{
+                padding: '6px 12px',
+                borderRadius: '20px',
+                border: sortBy === type ? '1px solid var(--color-primary)' : '1px solid var(--color-border)',
+                background: sortBy === type ? 'var(--color-primary-light)' : 'var(--color-bg)',
+                color: sortBy === type ? 'var(--color-primary-dark)' : 'var(--color-text-sub)',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                transition: 'all 0.2s',
+                whiteSpace: 'nowrap'
+            }}
+        >
+            {icon} {label}
+        </button>
+    );
 
     return (
         <div className="inventory-page" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Modal */}
+            {selectedItem && (
+                <QuantityModal
+                    isOpen={isModalOpen}
+                    onClose={() => setIsModalOpen(false)}
+                    onConfirm={handleModalConfirm}
+                    itemName={selectedItem.name}
+                    maxQuantity={selectedItem.quantity}
+                    unit={selectedItem.unit}
+                />
+            )}
+
+            {/* Sort Controls */}
+            <div style={{
+                display: 'flex',
+                gap: '8px',
+                overflowX: 'auto',
+                paddingBottom: '4px',
+                marginLeft: '-4px', // Visual alignment
+                paddingLeft: '4px',
+                width: '100%',
+                scrollbarWidth: 'none' // Hide scrollbar
+            }}>
+                <SortButton type="expiry" label="期限順" icon={<Calendar size={14} />} />
+                <SortButton type="added" label="追加日" icon={<Clock size={14} />} />
+                <SortButton type="location" label="場所別" icon={<MapPin size={14} />} />
+                <SortButton type="name" label="名前順" icon={<Tag size={14} />} />
+            </div>
+
             {sortedItems.map(item => {
                 // Calculate days remaining
                 const now = new Date();
@@ -146,7 +240,18 @@ export const InventoryPage: React.FC = () => {
                                 <Button
                                     variant="secondary"
                                     size="sm"
-                                    onClick={() => handleConsume(item.id, item.name)}
+                                    onClick={() => navigate(`/edit/${item.id}`, { state: { item } })}
+                                    style={{
+                                        minWidth: 'auto',
+                                        padding: '0 8px'
+                                    }}
+                                >
+                                    <Pencil size={16} />
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => openConsumeModal(item)}
                                 >
                                     <Utensils size={16} style={{ marginRight: '4px' }} /> 使い切り
                                 </Button>

@@ -24,5 +24,5 @@ export interface ConsumptionLog {
     reason?: 'expired' | 'damaged' | 'other' | 'none';
 }
 
-export type SortOption = 'expiry' | 'added' | 'name';
+export type SortOption = 'expiry' | 'added' | 'name' | 'location';
 export type FilterOption = 'all' | 'expired' | StorageLocation;
