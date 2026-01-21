@@ -131,6 +131,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             window.gapi.client.setToken('');
             setUser(null);
             setToken(null);
+            // Clear cached spreadsheet ID to force re-discovery on next login
+            // This helps if the user had a wrong/private sheet and now wants to find the shared one
+            localStorage.removeItem('fridgy_spreadsheet_id');
         }
     };
 
