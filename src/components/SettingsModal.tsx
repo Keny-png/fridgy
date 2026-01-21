@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from './Button';
 import { sheetsService } from '../lib/sheets';
-import { LogOut, Database, Check, RefreshCw, X } from 'lucide-react';
+import { LogOut, Database, RefreshCw, X } from 'lucide-react';
 
 interface SettingsModalProps {
     isOpen: boolean;
