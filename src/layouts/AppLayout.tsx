@@ -5,10 +5,13 @@ import { BottomNav } from '../components/BottomNav';
 import './AppLayout.css';
 
 import { useAuth } from '../contexts/AuthContext';
+import { SettingsModal } from '../components/SettingsModal';
 
 export const AppLayout: React.FC = () => {
     const location = useLocation();
     const { user, logout } = useAuth();
+
+    const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
 
     const getHeaderTitle = () => {
         switch (location.pathname) {
@@ -19,23 +22,29 @@ export const AppLayout: React.FC = () => {
         }
     };
 
-    const handleSettingsClick = () => {
-        if (window.confirm('ログアウトしますか？')) {
-            logout();
-        }
+    const handleLogout = () => {
+        setIsSettingsOpen(false);
+        logout();
     };
 
     return (
         <div className="app-layout">
             <Header
                 title={getHeaderTitle()}
-                onSettingsClick={handleSettingsClick}
+                onSettingsClick={() => setIsSettingsOpen(true)}
                 userPhotoUrl={user?.photoUrl}
             />
             <main className="app-content">
                 <Outlet />
             </main>
             <BottomNav />
+
+            <SettingsModal
+                isOpen={isSettingsOpen}
+                onClose={() => setIsSettingsOpen(false)}
+                onLogout={handleLogout}
+                userEmail={user?.email || ''}
+            />
         </div>
     );
 };

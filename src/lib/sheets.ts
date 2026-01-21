@@ -60,6 +60,33 @@ export class SheetsService {
         return this.spreadsheetId!;
     }
 
+    /**
+     * Search for ALL accessible databases (owned or shared)
+     * Useful for troubleshooting sharing issues
+     */
+    async findAllDatabases(): Promise<Array<{ id: string, name: string, owner: string, isShared: boolean }>> {
+        const response = await window.gapi.client.drive.files.list({
+            q: `name = '${SPREADSHEET_TITLE}' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false`,
+            fields: 'files(id, name, owners, shared)',
+        });
+
+        const files = response.result.files || [];
+        return files.map((f: any) => ({
+            id: f.id,
+            name: f.name,
+            owner: f.owners && f.owners.length > 0 ? f.owners[0].displayName : 'Unknown',
+            isShared: f.shared || false
+        }));
+    }
+
+    /**
+     * Manually set the database ID
+     */
+    setSpreadsheetId(id: string) {
+        this.spreadsheetId = id;
+        localStorage.setItem('fridgy_spreadsheet_id', id);
+    }
+
     private async initHeaders(spreadsheetId: string) {
         await window.gapi.client.sheets.spreadsheets.values.update({
             spreadsheetId,
